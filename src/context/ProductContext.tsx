@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { products as initialProducts, type Product, getCategoryById } from '../data'
+import { products as initialProducts, type Product } from '../data'
 
 interface ProductContextType {
   products: Product[]
