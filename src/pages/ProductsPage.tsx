@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { getCategoryById } from '../data'
-import { useProducts } from '../context/ProductContext'
+import { useProducts } from '../hooks/useProducts'
 import PageHeader from '../components/PageHeader'
 
 export default function ProductsPage() {

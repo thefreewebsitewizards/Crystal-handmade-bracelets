@@ -1,22 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Product } from '../data'
-
-export interface CartItem {
-  product: Product
-  quantity: number
-}
-
-interface CartContextType {
-  items: CartItem[]
-  addItem: (product: Product, quantity?: number) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
-  clearCart: () => void
-  total: number
-  itemCount: number
-}
-
-const CartContext = createContext<CartContextType | null>(null)
+import { CartContext, type CartItem } from '../state/cart-context'
 
 const STORAGE_KEY = 'dittos-cart'
 
@@ -81,10 +65,4 @@ export function CartProvider({ children }: { children: ReactNode }) {
       {children}
     </CartContext.Provider>
   )
-}
-
-export function useCart() {
-  const ctx = useContext(CartContext)
-  if (!ctx) throw new Error('useCart must be used within CartProvider')
-  return ctx
 }

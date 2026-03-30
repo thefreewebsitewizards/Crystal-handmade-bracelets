@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useProducts } from '../context/ProductContext'
+import { useProducts } from '../hooks/useProducts'
 import { categories, type Product } from '../data'
 
 interface ProductModalProps {
@@ -9,6 +9,8 @@ interface ProductModalProps {
 
 export default function ProductModal({ product, onClose }: ProductModalProps) {
   const { addProduct, updateProduct } = useProducts()
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,8 +34,10 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
     }
   }, [product])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setSubmitting(true)
+    setError(null)
 
     const newProductData = {
       name: formData.name,
@@ -44,12 +48,18 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
       image: formData.image
     }
 
-    if (product) {
-      updateProduct(product.id, newProductData)
-    } else {
-      addProduct(newProductData)
+    try {
+      if (product) {
+        await updateProduct(product.id, newProductData)
+      } else {
+        await addProduct(newProductData)
+      }
+      onClose()
+    } catch {
+      setError('Unable to save product. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
-    onClose()
   }
 
   return (
@@ -134,9 +144,10 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
           </div>
 
           <div className="form-actions">
+            {error && <small className="form-hint" style={{ color: '#fca5a5', width: '100%' }}>{error}</small>}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">
-              {product ? 'Save Changes' : 'Create Product'}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : product ? 'Save Changes' : 'Create Product'}
             </button>
           </div>
         </form>

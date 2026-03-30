@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getCategoryById } from '../data'
-import { useCart } from '../context/CartContext'
-import { useProducts } from '../context/ProductContext'
+import { useCart } from '../hooks/useCart'
+import { useProducts } from '../hooks/useProducts'
 import PageHeader from '../components/PageHeader'
 
 export default function ProductDetailPage() {

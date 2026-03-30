@@ -1,46 +1,65 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { products as initialProducts, type Product } from '../data'
-
-interface ProductContextType {
-  products: Product[]
-  addProduct: (product: Omit<Product, 'id'>) => void
-  updateProduct: (id: string, updates: Partial<Product>) => void
-  deleteProduct: (id: string) => void
-  getProductsByCategory: (categoryId: string) => Product[]
-  getProductById: (id: string) => Product | undefined
-}
-
-const ProductContext = createContext<ProductContextType | null>(null)
-
-const STORAGE_KEY = 'dittos-products'
+import { useEffect, useState, type ReactNode } from 'react'
+import { collection, onSnapshot, query } from 'firebase/firestore'
+import type { Product } from '../data'
+import { callFunction, db } from '../lib/firebase'
+import { STORE_ID } from '../lib/store'
+import { ProductContext } from '../state/product-context'
 
 export function ProductProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) return JSON.parse(raw)
-    } catch { /* ignore */ }
-    return initialProducts
-  })
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(Boolean(STORE_ID))
+  const [error, setError] = useState<string | null>(STORE_ID ? null : 'Missing store configuration.')
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
-  }, [products])
-
-  function addProduct(productData: Omit<Product, 'id'>) {
-    const newProduct: Product = {
-      ...productData,
-      id: `prod-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    if (!STORE_ID) {
+      return
     }
-    setProducts(prev => [...prev, newProduct])
+
+    const productsRef = collection(db, 'stores', STORE_ID, 'products')
+    const q = query(productsRef)
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const mappedProducts = snapshot.docs.map((doc) => {
+          const data = doc.data() as Partial<Product>
+          const price = typeof data.price === 'number' ? data.price : Number(data.price || 0)
+          return {
+            id: data.id || doc.id,
+            categoryId: data.categoryId || '',
+            name: data.name || '',
+            description: data.description || '',
+            price,
+            priceLabel: data.priceLabel || `$${price.toFixed(2)}`,
+            image: data.image || '',
+          } satisfies Product
+        })
+
+        setProducts(mappedProducts)
+        setError(null)
+        setLoading(false)
+      },
+      () => {
+        setError('Unable to load products.')
+        setLoading(false)
+      },
+    )
+
+    return () => unsubscribe()
+  }, [])
+
+  async function addProduct(productData: Omit<Product, 'id'>) {
+    if (!STORE_ID) throw new Error('Missing store configuration.')
+    await callFunction('addProduct', { storeId: STORE_ID, productData })
   }
 
-  function updateProduct(id: string, updates: Partial<Product>) {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p))
+  async function updateProduct(id: string, updates: Partial<Product>) {
+    if (!STORE_ID) throw new Error('Missing store configuration.')
+    await callFunction('updateProduct', { storeId: STORE_ID, productId: id, updates })
   }
 
-  function deleteProduct(id: string) {
-    setProducts(prev => prev.filter(p => p.id !== id))
+  async function deleteProduct(id: string) {
+    if (!STORE_ID) throw new Error('Missing store configuration.')
+    await callFunction('deleteProduct', { storeId: STORE_ID, productId: id })
   }
 
   function getProductsByCategory(categoryId: string) {
@@ -55,6 +74,8 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     <ProductContext.Provider
       value={{
         products,
+        loading,
+        error,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -65,10 +86,4 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       {children}
     </ProductContext.Provider>
   )
-}
-
-export function useProducts() {
-  const ctx = useContext(ProductContext)
-  if (!ctx) throw new Error('useProducts must be used within ProductProvider')
-  return ctx
 }
